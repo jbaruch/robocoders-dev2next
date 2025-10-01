@@ -1,217 +1,198 @@
-# RGBW Control App: Webcam to Smart Bulb Color Control
-
-## 🎯 Product Intent
-
+🎯 Product Intent
 Build a live demo web application that:
-1. Captures webcam video in the browser
-2. Extracts the dominant color from each frame
-3. Sends color data to a Shelly Duo RGBW bulb over local network
-4. Controls the bulb's color in real-time based on webcam input
 
-**Use Case**: Interactive demonstration of color extraction and IoT control - wave colored objects in front of camera to change bulb color.
+Captures webcam video in the browser
+Extracts the dominant color from each frame
+Sends color data to a Shelly Duo RGBW bulb over local network
+Controls the bulb's color in real-time based on webcam input
 
-## 🔒 Methodology
-
-**Follow `copilot-instructions.md` strictly - Intent Integrity Chain (IIC) methodology applies.**
-
+Use Case: Interactive demonstration of color extraction and IoT control - wave colored objects in front of camera to change bulb color.
+Stage 1 Scope: Hardcoded bulb IP in configuration. mDNS discovery will be added in Stage 2.
+🔒 Methodology
+Follow copilot-instructions.md strictly - Intent Integrity Chain (IIC) methodology applies.
 You MUST work through phases: Analysis → Specification → Test Generation → Implementation, with STOP gates between each phase for user approval.
-
-## 📚 Context7 Requirements - MANDATORY
-
+📚 Context7 Requirements - MANDATORY
 Before ANY work, resolve and retrieve documentation for:
+Backend Libraries
 
-### Backend Libraries
-- **Spring Boot** (latest) - REST endpoints, RestClient, application configuration
-- **jmdns** - mDNS device discovery for local network
-- **Shelly Duo** or **Shelly API** - Bulb control API documentation
+Spring Boot (latest) - REST endpoints, RestClient, application configuration
+Shelly Duo or Shelly API - Bulb control API documentation
 
-### Frontend Libraries  
-- **Preact** - Component library
-- **htm** - JSX alternative for CDN use
-- **MediaStream API** - Webcam access (if available in Context7)
-- **Canvas API** - Image data extraction (if available in Context7)
+Frontend Libraries
 
-### Testing Libraries
-- **Spring Boot Test** - Backend testing
-- **Vitest** or appropriate testing framework - Frontend testing
+Preact - Component library
+htm - JSX alternative for CDN use
+MediaStream API - Webcam access (if available in Context7)
+Canvas API - Image data extraction (if available in Context7)
 
-**If ANY Context7 lookup fails → STOP immediately and report per IIC instructions.**
+Testing Libraries
 
-## 🏗️ Technical Stack
+Spring Boot Test - Backend testing
+Vitest or appropriate testing framework - Frontend testing
 
+If ANY Context7 lookup fails → STOP immediately and report per IIC instructions.
+🏗️ Technical Stack
 Use the scaffolded workspace:
-- **Backend**: Java (latest LTS), Spring Boot (latest 3.x)
-- **Frontend**: HTML, Preact via CDN (htm/preact)
-- **Build**: Maven (already configured)
-- **Network**: HTTP only (no WebSockets)
-- **Discovery**: mDNS via jmdns library
-- **Deployment**: Local only (demo app)
 
-## 🎨 Functional Requirements
+Backend: Java (latest LTS), Spring Boot (latest 3.x)
+Frontend: HTML, Preact via CDN (htm/preact)
+Build: Maven (already configured)
+Network: HTTP only
+Configuration: Bulb IP in application.yml (hardcoded for Stage 1)
+Deployment: Local only (demo app)
 
-### Backend Responsibilities
+🎨 Functional Requirements
+Backend Responsibilities
 
-1. **Color Control Endpoint**
-   - `POST /api/color`
-   - Accept RGB values: `{"r": 0-255, "g": 0-255, "b": 0-255}`
-   - Validate input ranges
-   - Convert RGB to format required by Shelly API (consult Context7)
-   - Send HTTP request to bulb using Spring RestClient
-   - Return success/error status
+Color Control Endpoint
 
-2. **Bulb Discovery** 
-   - Use jmdns library for mDNS discovery (consult Context7 for correct usage)
-   - Discover Shelly Duo devices on local network
-   - **CRITICAL**: Bind to actual network interface, NOT localhost (consult Context7 jmdns docs for correct binding)
-   - Cache discovered bulb IP
-   - Provide endpoint: `GET /api/bulb/status` returning discovery state and IP
+POST /api/color
+Accept RGB values: {"r": 0-255, "g": 0-255, "b": 0-255}
+Validate input ranges
+Convert RGB to format required by Shelly API (consult Context7)
+Send HTTP request to bulb using Spring RestClient
+Return success/error status
 
-3. **Configuration**
-   - Default bulb IP in `application.yml` (fallback if discovery fails)
-   - Configurable discovery timeout
-   - Configurable bulb model/service type
 
-4. **Error Handling**
-   - Network errors (bulb unreachable)
-   - Invalid color values
-   - Discovery failures
-   - Return appropriate HTTP status codes per Spring Boot best practices
+Configuration
 
-### Frontend Responsibilities
+Bulb IP address in application.yml as bulb.ip
+Use placeholder IP (e.g., 192.168.1.100) in configuration
+Make IP injectable for testing
 
-1. **Webcam Capture**
-   - Request camera permission via MediaStream API (consult Context7 if available)
-   - Display live video feed
-   - Handle permission denied gracefully
 
-2. **Color Extraction**
-   - Sample video frames using Canvas API (consult Context7 if available)
-   - Extract dominant color using simple algorithm (average RGB from center region)
-   - Update extraction at reasonable interval (100-200ms)
+Error Handling
 
-3. **UI Components**
-   - Video preview element
-   - Color preview (showing extracted color)
-   - Bulb discovery status indicator
-   - Discovered bulb IP display
-   - Error messages
-   - Start/Stop controls
+Network errors (bulb unreachable)
+Invalid color values (out of range, negative, null)
+Return appropriate HTTP status codes per Spring Boot best practices
 
-4. **API Integration**
-   - Send extracted colors to backend via `POST /api/color`
-   - Throttle requests appropriately
-   - Handle network errors
-   - Display connection status
 
-5. **Visual Feedback**
-   - Show current extracted color
-   - Show bulb connection status
-   - Show discovery status (searching/found/failed)
-   - Error states
 
-## 🚫 Constraints
+Frontend Responsibilities
 
-- **NO** databases (stateless app)
-- **NO** WebSockets (HTTP only)
-- **NO** Docker (runs locally)
-- **NO** authentication (demo app)
-- **NO** npm/webpack build for frontend (CDN only)
-- **NO** complex state management
-- **YES** must work on local network
-- **YES** must bind to network interface for discovery (NOT localhost)
+Webcam Capture
 
-## 🧪 Key Behaviors to Specify (Phase 2)
+Request camera permission via MediaStream API (consult Context7 if available)
+Display live video feed
+Handle permission denied gracefully
 
-### Backend Behaviors
-- Color endpoint accepts valid RGB values
-- Color endpoint rejects invalid values
-- Color endpoint communicates with bulb per Shelly API
-- Discovery finds Shelly device on network using correct interface binding
-- Discovery caches bulb IP
-- Status endpoint returns discovery state
 
-### Frontend Behaviors
-- Webcam permission requested and handled
-- Color extracted from video frames
-- Color sent to backend at throttled rate
-- UI displays current state (color, discovery, errors)
-- User can start/stop color tracking
+Color Extraction
 
-### Integration Behaviors
-- End-to-end: webcam → extraction → backend → bulb
-- Discovery failure falls back to configured IP
-- Network errors handled gracefully
+Sample video frames using Canvas API (consult Context7 if available)
+Extract dominant color using simple algorithm (average RGB from center region)
+Update extraction at reasonable interval (100-200ms)
 
-## 🎯 Success Criteria
 
-1. **Functional**:
-   - Webcam captures and displays video
-   - Dominant color extracted visibly
-   - Bulb color changes in real-time reflecting webcam input
-   - mDNS discovers bulb automatically
-   - Discovery status visible to user
-   - Fallback to configured IP works
+UI Components
 
-2. **Non-Functional**:
-   - Color change response < 200ms
-   - Discovery completes within 10 seconds
-   - Minimal CPU usage
-   - Graceful error handling
+Video preview element
+Color preview (showing extracted color)
+Connection status indicator
+Error messages
+Start/Stop controls
 
-3. **Code Quality**:
-   - All tests pass (TDD per IIC)
-   - Clean separation of concerns
-   - No IIC violations
-   - All third-party API usage verified via Context7
 
-## 🚀 Phase 1: Analysis - START HERE
+API Integration
 
-Begin with IIC Phase 1 per `copilot-instructions.md`.
+Send extracted colors to backend via POST /api/color
+Throttle requests appropriately
+Handle network errors
+Display connection status
 
-Your analysis should:
 
-1. **Resolve ALL Context7 dependencies** listed above
-2. **Define architecture**:
-   - Backend component boundaries (controller, service, client layers)
-   - Frontend component structure
-   - API contracts between frontend/backend
-   - Network communication patterns
-3. **Document technical decisions** in `docs/tech_assumptions.md`:
-   - Why mDNS over hardcoded IP (user experience)
-   - Why RestClient over other HTTP clients
-   - Why simple color averaging (demo simplicity)
-   - Interface binding strategy for discovery (Context7 jmdns guidance)
-   - Shelly API interaction approach (Context7 Shelly guidance)
-4. **Update all Phase 1 documentation** per IIC requirements
+Visual Feedback
 
-**Present your analysis and STOP for approval before Phase 2.**
+Show current extracted color
+Show bulb connection status
+Show last sent color
+Error states
 
-## 💡 Known Technical Considerations
 
-### mDNS Network Interface Binding
-Per user experience: binding to localhost will NOT discover devices on LAN. Consult Context7 jmdns documentation for correct interface binding approach.
 
-### Frontend CDN Pattern
-```html
-<script type="module">
-  import { html, render } from 'https://unpkg.com/htm/preact/standalone.module.js';
-  // App code here
-</script>
-```
+🚫 Constraints
 
-### Color Extraction Approach
-Simple averaging of center region pixels is sufficient for demo purposes. More sophisticated algorithms (clustering, histogram) are NOT required unless user requests.
+NO databases (stateless app)
+NO WebSockets (HTTP only)
+NO Docker (runs locally)
+NO authentication (demo app)
+NO npm/webpack build for frontend (CDN only)
+NO complex state management
+NO mDNS discovery (Stage 2 feature)
+YES hardcoded IP in configuration
+YES must work on local network
 
-## ⚠️ Critical Reminders
+⚠️ CRITICAL: Expected Test Failures
+Integration tests that actually call the bulb WILL FAIL until the user provides the correct bulb IP.
+This is EXPECTED and CORRECT behavior:
 
-1. **Follow `copilot-instructions.md`** - Complete IIC process
-2. **Use Context7 for ALL third-party APIs** - Shelly API, jmdns, Spring Boot, Preact
-3. **STOP at every phase gate** - Do not proceed without approval
-4. **Never modify test/spec/** - Per IIC protected files rules
-5. **Keep it simple** - This is a demo app
+You will use a placeholder IP (e.g., 192.168.1.100) in configuration
+Tests that call the real bulb endpoint will fail with network errors
+DO NOT spend time trying to fix these failures
+DO NOT hallucinate or guess the correct IP
+DO NOT modify tests to avoid calling the bulb
 
-## 🎬 Begin Phase 1
+When integration tests fail with network errors:
 
-Resolve Context7 dependencies and perform analysis per IIC methodology.
+Verify the test logic is correct (validates behavior if bulb were reachable)
+Document in test or comments: "Requires actual bulb IP in application.yml"
+Report: "Integration tests fail as expected - awaiting user's bulb IP configuration"
+STOP and present results
 
-**Do not skip to specification or implementation.**
+Unit tests that mock the HTTP client SHOULD pass and demonstrate correct behavior.
+🧪 Key Behaviors to Specify (Phase 2)
+Backend Behaviors
+
+Color endpoint accepts valid RGB values (0-255 for each channel)
+Color endpoint rejects invalid values (negative, >255, null)
+Color endpoint formats request per Shelly API (consult Context7)
+Color endpoint sends HTTP request to configured bulb IP
+Color endpoint returns appropriate status codes
+Configuration loads bulb IP from application.yml
+
+Frontend Behaviors
+
+Webcam permission requested and handled
+Video stream displayed in UI
+Color extracted from video frames (center region)
+Color sent to backend at throttled rate
+UI displays current extracted color
+UI displays connection status
+User can start/stop color tracking
+Errors displayed to user
+
+Integration Behaviors
+
+End-to-end: webcam → extraction → backend → bulb (will fail until real IP provided)
+Network errors handled gracefully with user feedback
+Invalid color values rejected with appropriate error messages
+
+🎯 Success Criteria
+
+Functional:
+
+Webcam captures and displays video
+Dominant color extracted and displayed
+Color sent to backend with correct format
+Backend validates and formats per Shelly API
+Backend sends HTTP request to configured IP
+When real bulb IP provided: Bulb color changes in real-time
+All error cases handled gracefully
+
+
+Non-Functional:
+
+Color extraction responsive (100-200ms intervals)
+Request throttling prevents spam
+Minimal CPU usage
+Clear error messages
+
+
+Code Quality:
+
+All unit tests pass
+Integration tests demonstrate correct behavior (but fail on network until real IP)
+Clean separation of concerns
+No IIC violations
+All third-party API usage verified via Context7
