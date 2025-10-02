@@ -1,0 +1,628 @@
+# Windsurf Rules for Vibecoding RGBW Control App
+
+## 🎯 Project Overview
+This is a **demo-focused** Spring Boot + Vanilla JS web app that controls Shelly RGBW smart bulbs using webcam color detection. **Simplicity is paramount** - this is designed for a 1-hour live conference demo.
+
+---
+
+## 🚨 Critical Design Principles
+
+### 1. **Radical Simplicity - NO Complex Infrastructure**
+```yaml
+NEVER_ADD:
+  - Docker containers or docker-compose
+  - Databases (PostgreSQL, H2, MongoDB, etc.)
+  - Redis or any caching layer
+  - Message queues (Kafka, RabbitMQ, etc.)
+  - WebSocket connections
+  - Circuit breakers (Resilience4j)
+  - Prometheus metrics or Actuator endpoints
+  - Authentication/Authorization
+  - Frontend frameworks (React, Vue, Angular)
+  - Build tools (Webpack, Vite, etc.)
+  - CSS preprocessors (Sass, Less)
+```
+
+### 2. **Demo-First Mentality**
+- Must run with single command: `mvn spring-boot:run`
+- Zero configuration for end user
+- Large, projection-friendly UI (minimum 18px fonts, 24px+ buttons)
+- High contrast colors for visibility from distance
+- No crashes allowed - graceful degradation everywhere
+
+---
+
+## 📚 Technology Stack (STRICT)
+
+### Backend
+```yaml
+java_version: 25  # LTS, released September 2025
+spring_boot_version: 3.5.6  # Latest stable
+build_tool: Maven 3.9+
+http_client: RestClient  # NOT RestTemplate (deprecated)
+validation: spring-boot-starter-validation
+```
+
+### Frontend
+```yaml
+html: HTML5 (no templating engines)
+javascript: Vanilla ES2024 (no frameworks)
+css: Modern CSS with Grid/Flexbox (no preprocessors)
+color_detection: Color Thief 2.4.0 via CDN
+```
+
+---
+
+## 🏗️ Project Structure (MANDATORY)
+
+```
+vibecoding-demo/
+├── pom.xml
+├── src/
+│   ├── main/
+│   │   ├── java/com/demo/vibecoding/
+│   │   │   ├── VibeCodingApplication.java
+│   │   │   ├── controller/ColorController.java
+│   │   │   ├── service/ShellyBulbService.java
+│   │   │   ├── model/ColorRequest.java
+│   │   │   ├── model/ColorResponse.java
+│   │   │   └── config/WebConfig.java
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── static/
+│   │           ├── index.html
+│   │           ├── app.js
+│   │           └── styles.css
+│   └── test/java/com/demo/vibecoding/
+│       └── VibeCodingApplicationTests.java
+├── scripts/
+│   ├── discover-shelly-devices.sh
+│   ├── test-shelly-api.sh
+│   └── test-integration.sh
+└── README.md
+```
+
+---
+
+## 💻 Java Code Rules
+
+### 1. **Use Modern Java 25 Features**
+```java
+// ✅ ALWAYS use records for DTOs
+public record ColorRequest(
+    @Min(0) @Max(255) int red,
+    @Min(0) @Max(255) int green,
+    @Min(0) @Max(255) int blue
+) {}
+
+// ✅ Use constructor injection (NO field injection)
+@Service
+public class ShellyBulbService {
+    private final String bulbIp;
+    
+    public ShellyBulbService(@Value("${shelly.bulb.ip}") String bulbIp) {
+        this.bulbIp = bulbIp;
+    }
+}
+
+// ❌ NEVER use field injection
+@Autowired  // DON'T DO THIS
+private ShellyBulbService service;
+```
+
+### 2. **HTTP Client Usage**
+```java
+// ✅ ALWAYS use RestClient (Spring Boot 3.x+)
+RestClient restClient = RestClient.builder()
+    .requestFactory(new SimpleClientHttpRequestFactory())
+    .build();
+
+// ❌ NEVER use deprecated RestTemplate
+RestTemplate restTemplate = new RestTemplate();  // DON'T DO THIS
+```
+
+### 3. **Avoid Deprecated APIs**
+- Check Spring Boot 3.5.6 documentation before using any API
+- Use `@Deprecated` annotation awareness in IDE
+- Prefer newer alternatives explicitly mentioned in docs
+
+### 4. **Code Style**
+```yaml
+method_length: max 20 lines
+variable_names: meaningful and descriptive
+comments: only for non-obvious logic
+exception_handling: simple try-catch, no custom exception hierarchies
+```
+
+---
+
+## 🔌 Shelly Bulb Integration (CRITICAL)
+
+### **ONLY Use This Endpoint**
+```
+GET http://{bulb-ip}/light/0?turn=on&red={r}&green={g}&blue={b}&white={w}&gain=100
+```
+
+### **White Channel Calculation**
+```java
+// ✅ ALWAYS calculate white as minimum RGB
+int white = Math.min(Math.min(red, green), blue);
+```
+
+### **DO NOT USE These Endpoints**
+```
+❌ /white/0
+❌ /color/0  
+❌ Any advanced features (effects, transitions, etc.)
+```
+
+### **Parameters**
+```yaml
+turn: "on" | "off"
+red: 0-255
+green: 0-255
+blue: 0-255
+white: 0-255 (calculated as min(r,g,b))
+gain: 100 (always use 100 for demo)
+```
+
+---
+
+## 🎨 Frontend Rules
+
+### 1. **UI Design Requirements**
+```css
+/* Minimum sizes for projection visibility */
+font-size: 18px minimum
+button-font-size: 24px minimum
+button-height: 50px minimum
+color-preview-size: 250px × 250px
+
+/* High contrast for visibility */
+background: dark colors
+text: light colors with high contrast
+borders: clearly visible (2px+)
+```
+
+### 2. **Camera Handling**
+```javascript
+// ✅ Enumerate devices properly
+navigator.mediaDevices.enumerateDevices()
+  .then(devices => {
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    // Populate dropdown
+  });
+
+// ✅ Handle permissions gracefully
+navigator.mediaDevices.getUserMedia({ video: true })
+  .catch(err => {
+    // Show clear error message
+    statusDiv.textContent = "Camera access denied. Please grant permissions.";
+  });
+```
+
+### 3. **Mode Management**
+```javascript
+// Manual mode: Send button enabled, no auto-sending
+// Auto mode: Send button disabled, auto-send every 3 seconds
+
+let mode = 'manual';
+let autoInterval = null;
+
+function startAutoMode() {
+  autoInterval = setInterval(() => {
+    const color = extractColor();
+    sendColorToBulb(color.r, color.g, color.b);
+  }, 3000);
+}
+
+function stopAutoMode() {
+  if (autoInterval) {
+    clearInterval(autoInterval);
+    autoInterval = null;
+  }
+}
+```
+
+### 4. **Color Detection**
+```javascript
+// ✅ Use Color Thief library (loaded via CDN)
+const colorThief = new ColorThief();
+const video = document.getElementById('webcam');
+
+function extractColor() {
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  
+  const [r, g, b] = colorThief.getColor(canvas);
+  return { r, g, b };
+}
+```
+
+---
+
+## 🧪 Testing & Scripts
+
+### 1. **Script Patterns**
+All bash scripts must follow these patterns:
+
+```bash
+#!/bin/bash
+
+# Use colored output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Use emojis for visual feedback
+echo "🔍 Discovering devices..."
+echo "✅ Success!"
+echo "❌ Failed!"
+
+# Proper error handling
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Command failed${NC}"
+    exit 1
+fi
+```
+
+### 2. **Integration Testing**
+- Test script must verify all endpoints
+- Use `curl` for HTTP requests
+- Include visual color tests (red, green, blue, white)
+- Test error handling with invalid inputs
+- Verify frontend accessibility
+
+### 3. **Shelly API Testing**
+- Use `http` command (HTTPie) for testing
+- Test all color channels independently
+- Verify brightness control
+- Test on/off states
+- Include device info and status checks
+
+---
+
+## 🚫 Explicit Exclusions (DO NOT IMPLEMENT)
+
+### Backend
+```yaml
+FORBIDDEN:
+  - WebSocket connections
+  - Circuit breakers
+  - Connection pooling configuration
+  - Actuator endpoints
+  - Prometheus metrics
+  - Redis caching
+  - Any database
+  - Docker
+  - MQTT protocol
+  - Authentication/Authorization
+  - Rate limiting
+  - Complex logging frameworks (use SLF4J default only)
+```
+
+### Frontend
+```yaml
+FORBIDDEN:
+  - WebSocket client
+  - K-means clustering for color
+  - OffscreenCanvas
+  - Web Workers
+  - HSL/HSV conversions
+  - Kelvin temperature calculations
+  - Complex color science
+  - MediaStream constraints configuration beyond basics
+```
+
+---
+
+## 📝 Configuration Management
+
+### application.properties
+```properties
+# Server Configuration
+server.port=8080
+
+# Shelly Bulb Configuration
+shelly.bulb.ip=192.168.1.42  # Update with actual IP
+shelly.bulb.timeout=5000
+
+# CORS Configuration
+cors.allowed.origins=http://localhost:8080
+```
+
+### Environment Variables
+- Prefer `application.properties` over environment variables
+- Only use env vars if explicitly needed for deployment
+- Document all configuration in README
+
+---
+
+## 🎬 Demo Readiness Checklist
+
+Before considering the app complete, verify:
+
+```yaml
+✅ Single command startup: mvn spring-boot:run
+✅ Webcam dropdown populates automatically
+✅ Video stream displays without manual permission prompts
+✅ Color preview updates in real-time
+✅ Manual mode send button works
+✅ Auto mode sends every 3 seconds
+✅ Bulb actually changes color (test with real device)
+✅ UI visible from 20+ feet away
+✅ No crashes on camera switch
+✅ Error messages are clear and helpful
+✅ Code is explainable in < 5 minutes
+```
+
+---
+
+## 🔧 Build & Dependency Management
+
+### Maven Rules
+```xml
+<!-- ✅ ALWAYS use latest Spring Boot parent -->
+<parent>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-parent</artifactId>
+  <version>3.5.6</version>
+</parent>
+
+<!-- ✅ Minimal dependencies only -->
+<dependencies>
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-validation</artifactId>
+  </dependency>
+</dependencies>
+```
+
+### NO Additional Dependencies
+- No Lombok (use records instead)
+- No MapStruct (manual mapping is fine)
+- No Apache Commons (use Java standard library)
+- No Guava (use Java standard library)
+
+---
+
+## 🐛 Error Handling Strategy
+
+### Backend
+```java
+// ✅ Simple try-catch in service layer
+public boolean updateBulbColor(int red, int green, int blue) {
+    try {
+        String url = buildShellyUrl(red, green, blue);
+        restClient.get().uri(url).retrieve().toBodilessEntity();
+        return true;
+    } catch (Exception e) {
+        log.error("Failed to update bulb: {}", e.getMessage());
+        return false;
+    }
+}
+
+// ✅ Return boolean success, don't throw to controller
+// ❌ NO custom exception hierarchies
+// ❌ NO @ControllerAdvice unless absolutely necessary
+```
+
+### Frontend
+```javascript
+// ✅ Show clear error messages
+async function sendColorToBulb(r, g, b) {
+  try {
+    const response = await fetch('/api/color', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ red: r, green: g, blue: b })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    statusDiv.textContent = '✅ Color updated!';
+  } catch (error) {
+    statusDiv.textContent = `❌ Failed: ${error.message}`;
+  }
+}
+```
+
+---
+
+## 📦 File Generation Order
+
+When creating the project from scratch, follow this order:
+
+1. `pom.xml` - Dependencies first
+2. `application.properties` - Configuration
+3. Model classes (`ColorRequest.java`, `ColorResponse.java`)
+4. `ShellyBulbService.java` - Core logic
+5. `ColorController.java` - REST endpoint
+6. `WebConfig.java` - CORS configuration
+7. `VibeCodingApplication.java` - Main class
+8. `index.html` - UI structure
+9. `app.js` - Client logic
+10. `styles.css` - Styling
+11. Test scripts (`test-shelly-api.sh`, `test-integration.sh`)
+12. `README.md` - Documentation
+
+---
+
+## 🎯 Common Pitfalls to Avoid
+
+```yaml
+❌ Using @EnableWebMvc: Breaks Spring Boot auto-configuration
+❌ Using RestTemplate: Deprecated, use RestClient
+❌ Field injection with @Autowired: Use constructor injection
+❌ Complex exception handling: Keep it simple
+❌ Overthinking camera selection: Basic dropdown is fine
+❌ Premature optimization: Code clarity > performance
+❌ Adding "helpful" features: Stick to requirements only
+❌ Using /color/0 endpoint: Use /light/0 instead
+❌ Forgetting white channel: Always calculate as min(r,g,b)
+```
+
+---
+
+## 🎨 Visual Design Guidelines
+
+### Color Scheme
+```css
+/* Dark theme for projection */
+--bg-primary: #1a1a1a;
+--bg-secondary: #2d2d2d;
+--text-primary: #ffffff;
+--text-secondary: #cccccc;
+--accent: #4a9eff;
+--success: #4caf50;
+--error: #f44336;
+```
+
+### Layout
+```css
+/* CSS Grid for main layout */
+.container {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+  padding: 2rem;
+  gap: 2rem;
+}
+
+/* Large, touch-friendly buttons */
+button {
+  padding: 1.5rem 3rem;
+  font-size: 1.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+```
+
+---
+
+## 🔍 Code Review Checklist
+
+Before committing code, verify:
+
+```yaml
+✅ No deprecated APIs used
+✅ Records used for all DTOs
+✅ Constructor injection used
+✅ RestClient used (not RestTemplate)
+✅ Methods under 20 lines
+✅ Meaningful variable names
+✅ No unnecessary comments
+✅ No complex exception handling
+✅ No forbidden dependencies
+✅ Follows project structure exactly
+✅ Scripts use colored output and emojis
+✅ Frontend uses vanilla JS (no frameworks)
+✅ UI is large and high-contrast
+✅ White channel calculated correctly
+✅ /light/0 endpoint used (not /color/0)
+```
+
+---
+
+## 📚 Documentation Requirements
+
+### README.md Must Include
+```markdown
+1. Quick Start (single command)
+2. Prerequisites (Java 25, Maven 3.9+)
+3. Configuration (Shelly bulb IP)
+4. Demo flow instructions
+5. Troubleshooting common issues
+6. Technology stack overview
+```
+
+### Code Comments
+```java
+// ✅ Comment non-obvious logic only
+int white = Math.min(Math.min(red, green), blue); // White = min RGB for color balance
+
+// ❌ Don't comment obvious code
+int sum = a + b; // Add a and b
+```
+
+---
+
+## 🚀 Performance Requirements
+
+```yaml
+camera_stream: 30fps minimum
+color_extraction: < 100ms
+api_response: < 1 second (including network)
+auto_mode_interval: exactly 3 seconds
+ui_responsiveness: no lag on button clicks
+```
+
+---
+
+## 🔐 Security Considerations
+
+```yaml
+CORS: Configured for localhost only
+Input_Validation: Use @Min/@Max annotations
+Network: Local network only (no internet exposure)
+API_Keys: None required (local device control)
+```
+
+**Note**: This is a demo app for local network use only. Do not expose to internet.
+
+---
+
+## 📞 Support & Troubleshooting
+
+### Common Issues
+
+**Camera not working**
+- Check browser permissions
+- Ensure HTTPS or localhost
+- Try different camera from dropdown
+
+**Bulb not responding**
+- Verify bulb IP in application.properties
+- Test with `scripts/test-shelly-api.sh`
+- Check network connectivity
+- Use `scripts/discover-shelly-devices.sh` to find bulb
+
+**Build failures**
+- Verify Java 25 installed: `java -version`
+- Verify Maven 3.9+: `mvn -version`
+- Clean build: `mvn clean install`
+
+---
+
+## 🎓 Learning Resources
+
+- Spring Boot 3.5.6 Docs: https://docs.spring.io/spring-boot/docs/3.5.6/reference/html/
+- Java 25 Features: https://openjdk.org/projects/jdk/25/
+- Color Thief: https://github.com/lokesh/color-thief
+- Shelly API: https://shelly-api-docs.shelly.cloud/
+
+---
+
+## ✨ Final Notes
+
+This project is **intentionally simple** for demo purposes. Resist the urge to add:
+- Complex architecture patterns
+- Additional layers of abstraction
+- "Enterprise" features
+- Performance optimizations
+- Advanced error handling
+
+**Keep it simple. Keep it working. Keep it demo-ready.**
